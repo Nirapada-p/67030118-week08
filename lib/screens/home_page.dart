@@ -7,11 +7,17 @@ import '../repositories/item_repository.dart';
 import '../services/gemini_service.dart';
 import 'checkout_page.dart';
 import 'sell_item_page.dart';
+import '../repositories/favorites_repository.dart';
 
 class HomePage extends StatefulWidget {
-  final ItemRepository repository;
+  final ItemRepository itemRepository;
+  final FavoritesRepository favoritesRepository;
 
-  const HomePage({super.key, required this.repository});
+  const HomePage({
+    super.key,
+    required this.itemRepository,
+    required this.favoritesRepository,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -23,7 +29,8 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _itemsFuture = widget.repository.getItems();
+    // แก้ไขให้เรียกใช้ widget.itemRepository (เดิมเรียกผิดเป็น widget.repository)
+    _itemsFuture = widget.itemRepository.getItems();
   }
 
   Future<void> _testGemini() async {
@@ -124,18 +131,63 @@ class _HomePageState extends State<HomePage> {
                 ),
                 title: Text(item.title),
                 subtitle: Text('${item.price} บาท'),
-                trailing: IconButton(
-                  icon: const Icon(Icons.add_shopping_cart),
-                  onPressed: () {
-                    context.read<CartModel>().add(item);
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('เพิ่ม "${item.title}" ลงตะกร้าแล้ว'),
-                      ),
-                    );
-                  },
+                // --- แก้ไขตรง trailing ใหม่ทั้งหมด ---
+                trailing: Row(
+                  mainAxisSize:
+                      MainAxisSize.min, // สำคัญมาก ป้องกันไม่ให้ Row ดันพัง
+                  children: [
+                    // ปุ่มที่ 1: ปุ่มหัวใจ (รายการโปรด)
+                    IconButton(
+                      icon: const Icon(Icons.favorite_border),
+                      onPressed: () async {
+                        try {
+                          await widget.favoritesRepository.addFavorite(
+                            item.id,
+                            item.title,
+                            item.price,
+                            item.imageUrl,
+                          );
+
+                          if (!context.mounted) return;
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('เพิ่มสินค้าในรายการโปรดแล้ว'),
+                              duration: Duration(
+                                seconds: 1,
+                              ), // ทำให้หายไวขึ้นนิดนึง
+                            ),
+                          );
+                        } catch (e) {
+                          if (!context.mounted) return;
+
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('ไม่สามารถเพิ่มรายการโปรดได้: $e'),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+
+                    // ปุ่มที่ 2: ปุ่มตะกร้า
+                    IconButton(
+                      icon: const Icon(Icons.add_shopping_cart),
+                      onPressed: () {
+                        context.read<CartModel>().add(item);
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('เพิ่ม "${item.title}" ลงตะกร้าแล้ว'),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
                 ),
+
+                // ------------------------------------
               );
             },
           );
