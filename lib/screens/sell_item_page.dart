@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../models/listing_draft.dart';
 import '../repositories/listing_draft_repository.dart';
 import '../services/gemini_vision_service.dart';
+import 'my_drafts_page.dart';
 
 class SellItemPage extends StatefulWidget {
   final ListingDraftRepository draftRepository;
@@ -190,10 +191,29 @@ class _SellItemPageState extends State<SellItemPage> {
     }
   }
 
+  // เปิดหน้าร่างประกาศของฉัน
+  Future<void> _openMyDrafts() async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => MyDraftsPage(repository: widget.draftRepository),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ขายสินค้า')),
+      appBar: AppBar(
+        title: const Text('ขายสินค้า'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'ร่างประกาศของฉัน',
+            onPressed: _openMyDrafts,
+          ),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
