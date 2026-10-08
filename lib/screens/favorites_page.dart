@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../repositories/favorites_repository.dart';
+import '../database/app_database.dart';
 
 class FavoritesPage extends StatefulWidget {
   final FavoritesRepository repository;
@@ -12,23 +13,13 @@ class FavoritesPage extends StatefulWidget {
 }
 
 class _FavoritesPageState extends State<FavoritesPage> {
-  late Future<List<FavoriteItem>> _favoritesFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _favoritesFuture = widget.repository.getAllFavorites();
-  }
-
   Future<void> _removeFavorite(int itemId) async {
     try {
       await widget.repository.removeFavorite(itemId);
 
       if (!mounted) return;
 
-      setState(() {
-        _favoritesFuture = widget.repository.getAllFavorites();
-      });
+      setState(() {});
 
       ScaffoldMessenger.of(
         context,
@@ -44,10 +35,13 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
   @override
   Widget build(BuildContext context) {
+    // ดึงข้อมูลจาก Drift ใหม่ทุกครั้งที่หน้า build
+    final favoritesFuture = widget.repository.getAllFavorites();
+
     return Scaffold(
       appBar: AppBar(title: const Text('รายการโปรด')),
       body: FutureBuilder<List<FavoriteItem>>(
-        future: _favoritesFuture,
+        future: favoritesFuture,
         builder: (context, snapshot) {
           // กำลังโหลด
           if (snapshot.connectionState == ConnectionState.waiting) {

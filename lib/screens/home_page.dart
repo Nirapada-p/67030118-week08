@@ -6,7 +6,6 @@ import '../models/cart_model.dart';
 import '../repositories/item_repository.dart';
 import '../services/gemini_service.dart';
 import 'checkout_page.dart';
-import 'sell_item_page.dart';
 import '../repositories/favorites_repository.dart';
 
 class HomePage extends StatefulWidget {
@@ -26,11 +25,33 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   late Future<List<Item>> _itemsFuture;
 
+  // เก็บ ID ของสินค้าที่อยู่ในรายการโปรด
+  final Set<int> _favoriteItemIds = <int>{};
+
   @override
   void initState() {
     super.initState();
-    // แก้ไขให้เรียกใช้ widget.itemRepository (เดิมเรียกผิดเป็น widget.repository)
+
     _itemsFuture = widget.itemRepository.getItems();
+
+    // โหลดรายการโปรดจากฐานข้อมูลทันทีเมื่อเปิด Home
+    _loadFavorites();
+  }
+
+  Future<void> _loadFavorites() async {
+    try {
+      final favorites = await widget.favoritesRepository.getAllFavorites();
+
+      if (!mounted) return;
+
+      setState(() {
+        _favoriteItemIds
+          ..clear()
+          ..addAll(favorites.map((favorite) => favorite.itemId));
+      });
+    } catch (e) {
+      debugPrint('ไม่สามารถโหลดรายการโปรดได้: $e');
+    }
   }
 
   Future<void> _testGemini() async {
@@ -66,26 +87,11 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Campus Marketplace'),
         actions: [
-          // ปุ่มทดสอบ Gemini
           IconButton(
             icon: const Icon(Icons.auto_awesome),
             tooltip: 'ทดสอบ Gemini',
             onPressed: _testGemini,
           ),
-
-          // ปุ่มลงประกาศขายสินค้า
-          IconButton(
-            icon: const Icon(Icons.add_business),
-            tooltip: 'ลงประกาศขายสินค้า',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const SellItemPage()),
-              );
-            },
-          ),
-
-          // ปุ่มตะกร้าสินค้า
           IconButton(
             icon: Badge(
               label: Text('${context.watch<CartModel>().itemCount}'),
@@ -120,6 +126,9 @@ class _HomePageState extends State<HomePage> {
             itemBuilder: (context, index) {
               final item = items[index];
 
+              // ตรวจจากข้อมูลที่โหลดมาจาก Drift
+              final isFavorite = _favoriteItemIds.contains(item.id);
+
               return ListTile(
                 leading: Image.network(
                   item.imageUrl,
@@ -131,15 +140,20 @@ class _HomePageState extends State<HomePage> {
                 ),
                 title: Text(item.title),
                 subtitle: Text('${item.price} บาท'),
-
-                // --- แก้ไขตรง trailing ใหม่ทั้งหมด ---
                 trailing: Row(
-                  mainAxisSize:
-                      MainAxisSize.min, // สำคัญมาก ป้องกันไม่ให้ Row ดันพัง
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // ปุ่มที่ 1: ปุ่มหัวใจ (รายการโปรด)
+                    // =========================
+                    // ปุ่มรายการโปรด
+                    // =========================
                     IconButton(
-                      icon: const Icon(Icons.favorite_border),
+                      icon: Icon(
+                        isFavorite ? Icons.favorite : Icons.favorite_border,
+                      ),
+                      color: isFavorite ? Colors.red : null,
+                      tooltip: isFavorite
+                          ? 'อยู่ในรายการโปรดแล้ว'
+                          : 'เพิ่มในรายการโปรด',
                       onPressed: () async {
                         try {
                           await widget.favoritesRepository.addFavorite(
@@ -149,18 +163,20 @@ class _HomePageState extends State<HomePage> {
                             item.imageUrl,
                           );
 
-                          if (!context.mounted) return;
+                          if (!mounted) return;
+
+                          setState(() {
+                            _favoriteItemIds.add(item.id);
+                          });
 
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('เพิ่มสินค้าในรายการโปรดแล้ว'),
-                              duration: Duration(
-                                seconds: 1,
-                              ), // ทำให้หายไวขึ้นนิดนึง
+                              duration: Duration(seconds: 1),
                             ),
                           );
                         } catch (e) {
-                          if (!context.mounted) return;
+                          if (!mounted) return;
 
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -171,9 +187,12 @@ class _HomePageState extends State<HomePage> {
                       },
                     ),
 
-                    // ปุ่มที่ 2: ปุ่มตะกร้า
+                    // =========================
+                    // ปุ่มตะกร้า
+                    // =========================
                     IconButton(
                       icon: const Icon(Icons.add_shopping_cart),
+                      tooltip: 'เพิ่มลงตะกร้า',
                       onPressed: () {
                         context.read<CartModel>().add(item);
 
@@ -186,8 +205,6 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
-
-                // ------------------------------------
               );
             },
           );
